@@ -14,6 +14,13 @@ class ViewController: UIViewController {
         // For state change handling
 
         Pathfinder.shared.delegate = self
+
+        // Force-change environment parameters from code
+        // Instead of changing from UI
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            Pathfinder.shared.setParamValue(of: "__code", value: "400", for: "auth")
+        }
     }
 
     // You may set any trigger to open Pathfinder deck

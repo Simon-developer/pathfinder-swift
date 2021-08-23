@@ -12,15 +12,16 @@ final class PFController: UIViewController {
     }
     private let topPart = UIView()
     private let bottomPart = UIView()
-
+    private let searchBar = UISearchBar()
     private let baseListTable = UITableView()
 
     private let presentationStyleSelectorView = PFPresentationStyleSelectorView(.list)
-
     private var presentationPagerContainer = UIStackView()
     private let serverSelector = PFServerSelectorView()
     private var nestedView = PFNestedListView(Pathfinder.shared.getGroupedRequests())
     private var dataList: [UrlSpec] = Pathfinder.shared.getAllUrls()
+    private lazy var filteredList = dataList
+    private var bottomStackConstraint: NSLayoutConstraint?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -30,11 +31,24 @@ final class PFController: UIViewController {
         serverSelector.onSelected = { server in
             Pathfinder.shared.changeEnvironment(to: server)
         }
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(keyboardWillShow), name: NSNotification.Name.UIKeyboardWillShow, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(keyboardWillHide), name: NSNotification.Name.UIKeyboardWillHide, object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     private func refreshData() {
-        nestedView = PFNestedListView(Pathfinder.shared.getGroupedRequests())
-        dataList   = Pathfinder.shared.getAllUrls()
+        nestedView     = PFNestedListView(Pathfinder.shared.getGroupedRequests())
+        dataList       = Pathfinder.shared.getAllUrls()
+        filteredList   = dataList
+        searchBar.text = ""
 
         nestedView.onSelectQuery = { [weak self] query in
             self?.present(PFQueryEditorController(config: query), animated: true)
@@ -47,6 +61,9 @@ final class PFController: UIViewController {
     /// Setting up controller layout
     private func configureLayout() {
         stackView.embedIn(view)
+
+        bottomStackConstraint = stackView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        bottomStackConstraint?.isActive = true
 
         nestedView.onSelectQuery = { [weak self] query in
             self?.present(PFQueryEditorController(config: query), animated: true)
@@ -70,10 +87,13 @@ final class PFController: UIViewController {
     private func setupTable() {
         baseListTable.dataSource = self
         baseListTable.delegate = self
+        baseListTable.keyboardDismissMode = .interactive
         baseListTable.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
     }
 
     private func handlePresentationStyleChange(to style: PFQueriesPresentationStyle) {
+        presentationStyleSelectorView.setSelection(style)
+
         switch style {
         case .list:
             presentationPagerContainer.arrangedSubviews.forEach { subview in
@@ -112,7 +132,8 @@ final class PFController: UIViewController {
     /// Configuring search and filter sections
     private func configureTop() -> UIView {
         let container = UIView()
-        UISearchBar().embedIn(container, inset: 10)
+        searchBar.delegate = self
+        searchBar.embedIn(container, inset: 10)
         return container
     }
 
@@ -126,22 +147,54 @@ final class PFController: UIViewController {
 // MARK: - UITableView Delegate
 extension PFController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return dataList.count
+        return filteredList.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        cell.textLabel?.text = dataList[indexPath.row].name
+        cell.textLabel?.text = filteredList[indexPath.row].name
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let queryModel = dataList[indexPath.row]
+        searchBar.resignFirstResponder()
+        let queryModel = filteredList[indexPath.row]
         let controller = PFQueryEditorController(config: queryModel)
         controller.onClose = { [weak self] in
             self?.refreshData()
         }
         present(controller, animated: true)
+    }
+}
+
+// MARK: - UISearchBar Delegate
+extension PFController: UISearchBarDelegate {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        guard searchText != "" else {
+            filteredList = dataList
+            baseListTable.reloadData()
+            return
+        }
+        handlePresentationStyleChange(to: .list)
+        let lowerSearchText   = searchText.lowercased()
+        let nameFilteredList  = dataList.filter { $0.name.lowercased().contains(lowerSearchText) }
+        let tagFilteredList   = dataList.filter { $0.tag.lowercased().contains(lowerSearchText) }
+        let tagFilteredExcludingOccurrences = tagFilteredList.filter { !nameFilteredList.contains($0) }
+        filteredList = nameFilteredList + tagFilteredExcludingOccurrences
+        baseListTable.reloadData()
+    }
+}
+
+// MARK: - Keyboard Handling
+extension PFController {
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        if let keyboardSize = (notification.userInfo?[UIKeyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
+            baseListTable.contentInset = UIEdgeInsetsMake(0, 0, keyboardSize.height, 0)
+        }
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        baseListTable.contentInset = UIEdgeInsetsMake(0, 0, 0, 0)
     }
 }

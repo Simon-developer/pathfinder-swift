@@ -104,8 +104,14 @@ extension ViewController: PathfinderStateDelegate {
 }
 ```
 
+#### Changing environment parameter from code
+If you need to force-change your environment parameter from code instead of doing it through UI, you may call `setParamValue()`.
+```swift
+Pathfinder.shared.setParamValue(of: "__code", value: "400", for: "auth")
+```
+
 ## TODO
-- Search
+Some ideas here...
 
 ## Author
 KODE slurm@kode.ru

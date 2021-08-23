@@ -31,14 +31,13 @@ final class PFPresentationStyleSelectorView: UIView {
                 isSelected: style == Constant.defaultPresentationStyle ? true : false
             )
             styleView.onStyleSelected = { [weak self] style in
-                self?.setSelection(style)
                 self?.onSelect?(style)
             }
             selectorStack.addArrangedSubview(styleView)
         }
     }
 
-    private func setSelection(_ style: PFQueriesPresentationStyle) {
+    func setSelection(_ style: PFQueriesPresentationStyle) {
         selectorStack.arrangedSubviews.forEach { styleView in
             if let styleView = styleView as? PFPresentationStyleView {
                 styleView.setSelection(styleView.presentationStyle == style)

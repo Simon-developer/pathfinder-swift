@@ -108,6 +108,25 @@ public final class Pathfinder {
     }
 
     ///
+    /// Sets up temporary value for environment parameter in UrlSpec.temporaryEnvParameters for single UrlSpec
+    ///
+    /// - Parameters:
+    ///   - paramName: key for one of temporaryEnvParameters elements (is got from current environment spec)
+    ///   - value:     String value, current temporary environment parameter value
+    ///   - urlId:     UrlSpec Id, needed to save envParam value only for one definite UrlSpec
+    ///
+    public func setParamValue(of paramName: String, value: String, for urlId: String) {
+        var allQueries = Self.shared.getAllUrls()
+
+        if let queryIndex = allQueries.firstIndex(where: { $0.id == urlId }) {
+            allQueries[queryIndex].temporaryEnvParameters[paramName] = value
+            queryService.queriesContext = allQueries
+        }
+
+        delegate?.pathfinder(didReceiveUpdatedState: currentState())
+    }
+
+    ///
     /// Retrieves current Pathfinder configuration state
     ///
     /// - Returns: Pathfinder configuration model that is currently active
@@ -185,24 +204,5 @@ public final class Pathfinder {
         } else {
             return nil
         }
-    }
-
-    ///
-    /// Sets up temporary value for environment parameter in UrlSpec.temporaryEnvParameters for single UrlSpec
-    ///
-    /// - Parameters:
-    ///   - paramName: key for one of temporaryEnvParameters elements (is got from current environment spec)
-    ///   - value:     String value, current temporary environment parameter value
-    ///   - urlId:     UrlSpec Id, needed to save envParam value only for one definite UrlSpec
-    ///
-    func setParamValue(of paramName: String, value: String, for urlId: String) {
-        var allQueries = Self.shared.getAllUrls()
-
-        if let queryIndex = allQueries.firstIndex(where: { $0.id == urlId }) {
-            allQueries[queryIndex].temporaryEnvParameters[paramName] = value
-            queryService.queriesContext = allQueries
-        }
-
-        delegate?.pathfinder(didReceiveUpdatedState: currentState())
     }
 }
